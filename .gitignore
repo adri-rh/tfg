@@ -1,0 +1,55 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+*.log
+*.sqlite3
+
+# Entornos virtuales
+venv/
+ENV/
+env/
+.venv/
+tfg_venv/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Archivos de configuración locales
+*.env
+*.DS_Store
+
+# === LaTeX ===
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.gz
+*.nav
+*.snm
+*.vrb
+*.pdf
+
+# === KNIME ===
+# Archivos temporales de ejecución
+knime-workspace/.metadata/
+*.knimeLock
+
+# === Otros ===
+# Archivos de sistema
+Thumbs.db
+.DS_Store
