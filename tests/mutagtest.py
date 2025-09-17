@@ -187,7 +187,6 @@ if __name__ == '__main__':
         num_layers=2
     )
     
-    #trainer = pl.Trainer(max_epochs=50)
     model_name = "GraphConv" 
     root_dir = os.path.join(CHECKPOINT_PATH, "GraphLevel" + model_name)
     trainer = pl.Trainer(default_root_dir=root_dir,
