@@ -53,3 +53,7 @@ knime-workspace/.metadata/
 # Archivos de sistema
 Thumbs.db
 .DS_Store
+
+/tests/checkpoints/
+/tests/lightning_logs/
+/tests/data/
