@@ -13,7 +13,6 @@ import torch_geometric.nn as geom_nn
 
 CHECKPOINT_PATH = "./checkpoints"
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-print(device)
 
 gnn_layer_by_name = {
     "GCN": geom_nn.GCNConv,
