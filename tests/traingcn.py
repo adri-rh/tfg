@@ -10,6 +10,8 @@ import torch.optim as optim
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 import torch_geometric.nn as geom_nn
+from pytorch_lightning.loggers import WandbLogger
+import wandb
 
 #Ruta donde se van a guardar los checkpoints del modelo
 CHECKPOINT_PATH = "./checkpoints"
@@ -25,8 +27,8 @@ gnn_layer_by_name = {
 }
 
 #Hiperparámetros globales
-GLOBAL_batch_size = 100
-GLOBAL_max_epochs = 50
+GLOBAL_batch_size = 8
+GLOBAL_max_epochs = 150
 
 #Definición de clases del modelo
 class GNNModel(nn.Module):
@@ -122,7 +124,7 @@ class GraphLevelGNN(pl.LightningModule):
 if __name__ == '__main__':
     DATASET_PATH = './data'
     tu_dataset = datasets.TUDataset(root=DATASET_PATH, name="MUTAG")
-    torch.manual_seed(42)
+    #torch.manual_seed(42)
     tu_dataset.shuffle()
     MUTAG_train_dataset = tu_dataset[:150]
     MUTAG_test_dataset = tu_dataset[150:]
@@ -138,11 +140,20 @@ if __name__ == '__main__':
         c_hidden=64,
         c_out=num_classes,
         layer_name="GCN",
-        num_layers=2
+        num_layers=4,
+        dp_rate=0.3
     )
 
     model_name = "GCN"
     root_dir = os.path.join(CHECKPOINT_PATH, "GraphLevel" + model_name)
+
+    #Inicializar wandb
+    wandb_logger = WandbLogger(
+        project="tfg",
+        name="GCN_MUTAG_4",
+        log_model=True
+    )
+
 
     trainer = pl.Trainer(default_root_dir=root_dir,
                          callbacks=[ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
@@ -151,6 +162,7 @@ if __name__ == '__main__':
                          devices=1,
                          max_epochs=GLOBAL_max_epochs,
                          enable_progress_bar=True,
-                         logger=False)
+                         logger=wandb_logger)
     trainer.fit(pl_model, train_dataloaders=MUTAG_graph_train_loader, val_dataloaders=MUTAG_graph_val_loader)
     test_result = trainer.test(pl_model, dataloaders=MUTAG_graph_test_loader)
+    wandb.finish()

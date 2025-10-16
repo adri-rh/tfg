@@ -10,6 +10,8 @@ import torch.optim as optim
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 import torch_geometric.nn as geom_nn
+from pytorch_lightning.loggers import WandbLogger
+import wandb
 
 #Ruta donde se van a guardar los checkpoints del modelo
 CHECKPOINT_PATH = "./checkpoints"
@@ -25,7 +27,7 @@ gnn_layer_by_name = {
 }
 
 #Hiperparámetros globales
-GLOBAL_batch_size = 100
+GLOBAL_batch_size = 8
 GLOBAL_max_epochs = 50
 
 #Definición de clases del modelo
@@ -46,7 +48,7 @@ class GNNModel(nn.Module):
             in_channels = c_hidden * heads
 
         #Capa final con una sola cabeza (para reducir dimensionalidad)
-        layers += [gnn_layer(in_channels=in_channels, out_channels=c_out, heads=1, concat=False, **kwargs)]
+        layers += [gnn_layer(in_channels=in_channels, out_channels=c_out, heads=1, concat=True, **kwargs)]
         self.layers = nn.ModuleList(layers)
 
     def forward(self, x, edge_index):
@@ -123,7 +125,7 @@ class GraphLevelGNN(pl.LightningModule):
 if __name__ == '__main__':
     DATASET_PATH = './data'
     tu_dataset = datasets.TUDataset(root=DATASET_PATH, name="MUTAG")
-    torch.manual_seed(42)
+    #torch.manual_seed(42)
     tu_dataset.shuffle()
     MUTAG_train_dataset = tu_dataset[:150]
     MUTAG_test_dataset = tu_dataset[150:]
@@ -139,12 +141,20 @@ if __name__ == '__main__':
         c_hidden=64,
         c_out=num_classes,
         layer_name="GAT",
-        num_layers=2,
-        heads=4
+        num_layers=4,
+        dp_rate=0.4,
+        heads=6
     )
 
     model_name = "GAT"
     root_dir = os.path.join(CHECKPOINT_PATH, "GraphLevel" + model_name)
+
+    #Inicializar wandb
+    wandb_logger = WandbLogger(
+        project="tfg",
+        name="GAT_MUTAG_4",
+        log_model=True
+    )
 
     trainer = pl.Trainer(default_root_dir=root_dir,
                          callbacks=[ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
@@ -153,7 +163,8 @@ if __name__ == '__main__':
                          devices=1,
                          max_epochs=GLOBAL_max_epochs,
                          enable_progress_bar=True,
-                         logger=False)
+                         logger=wandb_logger)
 
     trainer.fit(pl_model, train_dataloaders=MUTAG_graph_train_loader, val_dataloaders=MUTAG_graph_val_loader)
     test_result = trainer.test(pl_model, dataloaders=MUTAG_graph_test_loader)
+    wandb.finish()
