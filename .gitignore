@@ -57,3 +57,5 @@ Thumbs.db
 /tests/checkpoints/
 /tests/lightning_logs/
 /tests/data/
+/tests/tfg/
+/tests/wandb/
