@@ -59,3 +59,8 @@ Thumbs.db
 /tests/data/
 /tests/tfg/
 /tests/wandb/
+
+# JAAD
+/src/checkpoints/
+/src/data/
+/src/datasets/
