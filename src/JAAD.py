@@ -13,6 +13,8 @@ from torch_geometric.loader import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from tqdm import tqdm
+from pytorch_lightning.loggers import WandbLogger
+import wandb
 
 #Configuración global
 CHECKPOINT_PATH = "./checkpoints"
@@ -205,7 +207,15 @@ if __name__ == "__main__":
 
     model = GraphLevelGNN(c_in=20, c_out=1, c_hidden=256,
                           dp_rate_linear=0.5, dp_rate=0.0,
-                          num_layers=3, layer_name="GAT")
+                          num_layers=3, layer_name="GraphConv")
+
+    #Inicializar wandb
+    wandb_logger = WandbLogger(
+        project="tfg",
+        name="GraphConv_JAAD_1",
+        log_model=True
+    )
+
 
     trainer = pl.Trainer(
         default_root_dir=os.path.join(CHECKPOINT_PATH, "GraphLevelJAAD"),
@@ -214,7 +224,8 @@ if __name__ == "__main__":
         accelerator="gpu" if str(device).startswith("cuda") else "cpu",
         devices=1,
         max_epochs=GLOBAL_MAX_EPOCHS,
-        enable_progress_bar=True
+        enable_progress_bar=True,
+        logger=wandb_logger
     )
 
     trainer.fit(model, train_loader, val_loader)
@@ -222,3 +233,4 @@ if __name__ == "__main__":
 
     print("\nEvaluación final del modelo JAAD:")
     trainer.test(best_model, dataloaders=test_loader, verbose=True)
+    wandb.finish()
