@@ -197,6 +197,8 @@ class JAAD(InMemoryDataset):
 #Entrenamiento del modelo con el dataset JAAD
 if __name__ == "__main__":
     pl.seed_everything(42)
+    #torch.use_deterministic_algorithms(True)
+    #os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
     dts = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='train')
     dts_test = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='test')
@@ -207,12 +209,12 @@ if __name__ == "__main__":
 
     model = GraphLevelGNN(c_in=20, c_out=1, c_hidden=256,
                           dp_rate_linear=0.5, dp_rate=0.0,
-                          num_layers=3, layer_name="GraphConv")
+                          num_layers=3, layer_name="GCN")
 
     #Inicializar wandb
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GraphConv_JAAD_1",
+        name="GCN_JAAD_no_deterministic2",
         log_model=True
     )
 
