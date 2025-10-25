@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch_geometric.nn as geom_nn
-import torch_geometric.data as geom_data
 import torch_geometric.transforms as T
 from torch_geometric.data import InMemoryDataset, Data
 from torch_geometric.loader import DataLoader
@@ -131,7 +130,6 @@ class GraphLevelGNN(pl.LightningModule):
         self.log('train_acc', acc, prog_bar=True)
         return loss
 
-
     #Fase de validación
     def validation_step(self, batch, _):
         _, acc = self.forward(batch, "val")
@@ -164,6 +162,7 @@ class JAAD(InMemoryDataset):
             n_rows = len(df.index)
             n_feats = len([df[e].unique().size for e in df.drop(columns=['ped_id', 'cross'])])
 
+            #Construcción de características por nodo
             x = np.vstack([
                 np.pad(np.zeros(n_rows)[np.newaxis].T, [(0, 0), (0, 19)], 'constant'),
                 np.pad(pd.get_dummies(df['attention']).to_numpy(dtype=float), [(0, 0), (1, 19 - df['attention'].nunique())], 'constant'),
@@ -179,8 +178,19 @@ class JAAD(InMemoryDataset):
                 x_ = np.vstack([x_, x[i]])
                 for j in range(n_feats):
                     x_ = np.vstack([x_, x[n_rows * (j + 1) + i]])
-                edges_ = np.array([[0, 0, 0, 0, 0],
-                                   [1, 2, 3, 4, 5]], dtype=int)
+
+                #Grafo de Angie
+                #edges_ = np.array([[0, 0, 0, 0, 0],
+                #                    [1, 2, 3, 4, 5]], dtype=int)
+
+                #Grafo de Adrián
+                #edges_ = np.array([[0, 0, 0, 0, 4],
+                #                    [1, 2, 3, 4, 5]], dtype=int)
+
+                #Grafo propuesto en la reunión
+                edges_ = np.array([[0, 0, 0, 0, 0, 4],
+                                    [1, 2, 3, 4, 5, 5]], dtype=int)
+
                 label = torch.tensor([df['cross'].factorize(['noCrossRoad', 'CrossRoad'])[0][i]], dtype=torch.long)
                 graph = Data(x=torch.tensor(x_).float(),
                              edge_index=torch.tensor(edges_, dtype=torch.long),
@@ -197,8 +207,6 @@ class JAAD(InMemoryDataset):
 #Entrenamiento del modelo con el dataset JAAD
 if __name__ == "__main__":
     pl.seed_everything(42)
-    #torch.use_deterministic_algorithms(True)
-    #os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
     dts = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='train')
     dts_test = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='test')
@@ -209,15 +217,13 @@ if __name__ == "__main__":
 
     model = GraphLevelGNN(c_in=20, c_out=1, c_hidden=256,
                           dp_rate_linear=0.5, dp_rate=0.0,
-                          num_layers=3, layer_name="GCN")
+                          num_layers=3, layer_name="GraphConv")
 
-    #Inicializar wandb
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GCN_JAAD_no_deterministic2",
+        name="GraphConv_JAAD_grafo_Combinación",
         log_model=True
     )
-
 
     trainer = pl.Trainer(
         default_root_dir=os.path.join(CHECKPOINT_PATH, "GraphLevelJAAD"),
