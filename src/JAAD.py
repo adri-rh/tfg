@@ -167,14 +167,23 @@ class JAAD(InMemoryDataset):
             n_feats = len([df[e].unique().size for e in df.drop(columns=['cross'])])
 
             #Construcción de características por nodo
+            def pad_feature(arr, left, right, total=24):
+                arr_padded = np.pad(arr, [(0, 0), (left, max(0, right))], 'constant')
+                #Forzar tamaño uniforme (rellena con ceros si falta)
+                if arr_padded.shape[1] < total:
+                    arr_padded = np.pad(arr_padded, [(0, 0), (0, total - arr_padded.shape[1])], 'constant')
+                elif arr_padded.shape[1] > total:
+                    arr_padded = arr_padded[:, :total]
+                return arr_padded
+
             x = np.vstack([
-                np.pad(np.zeros(n_rows)[np.newaxis].T, [(0, 0), (0, 19)], 'constant'),
-                np.pad(pd.get_dummies(df['attention']).to_numpy(dtype=float), [(0, 0), (1, 19 - df['attention'].nunique())], 'constant'),
-                np.pad(pd.get_dummies(df['orientation']).to_numpy(dtype=float), [(0, 0), (3, 17 - df['orientation'].nunique())], 'constant'),
-                np.pad(pd.get_dummies(df['proximity']).to_numpy(dtype=float), [(0, 0), (7, 13 - df['proximity'].nunique())], 'constant'),
-                np.pad(pd.get_dummies(df['distance']).to_numpy(dtype=float), [(0, 0), (10, 10 - df['distance'].nunique())], 'constant'),
-                np.pad(pd.get_dummies(df['action']).to_numpy(dtype=float), [(0, 0), (15, 5 - df['action'].nunique())], 'constant'),
-                np.pad(pd.get_dummies(df['zebra_cross']).to_numpy(dtype=float), [(0, 0), (18, 2 - df['zebra_cross'].nunique())], 'constant')
+                pad_feature(np.zeros(n_rows)[np.newaxis].T, 0, 19),
+                pad_feature(pd.get_dummies(df['attention']).to_numpy(dtype=float), 1, 19 - df['attention'].nunique()),
+                pad_feature(pd.get_dummies(df['orientation']).to_numpy(dtype=float), 3, 17 - df['orientation'].nunique()),
+                pad_feature(pd.get_dummies(df['proximity']).to_numpy(dtype=float), 7, 13 - df['proximity'].nunique()),
+                pad_feature(df[['distance']].to_numpy(dtype=float), 10, 9),
+                pad_feature(pd.get_dummies(df['action']).to_numpy(dtype=float), 15, 5 - df['action'].nunique()),
+                pad_feature(pd.get_dummies(df['zebra_cross']).to_numpy(dtype=float), 18, 2 - df['zebra_cross'].nunique())
             ])
 
             data_list = []
@@ -185,16 +194,16 @@ class JAAD(InMemoryDataset):
                     x_ = np.vstack([x_, x[n_rows * (j + 1) + i]])
 
                 #Grafo de Angie
-                edges_ = np.array([[0, 0, 0, 0, 0, 0],
-                                    [1, 2, 3, 4, 5, 6]], dtype=int)
+                #edges_ = np.array([[0, 0, 0, 0, 0, 0],
+                #                    [1, 2, 3, 4, 5, 6]], dtype=int)
 
                 #Grafo de Adrián
                 #edges_ = np.array([[0, 0, 0, 0, 4],
                 #                    [1, 2, 3, 4, 5]], dtype=int)
 
                 #Grafo propuesto en la reunión
-                #edges_ = np.array([[0, 0, 0, 0, 0, 4],
-                #                    [1, 2, 3, 4, 5, 5]], dtype=int)
+                edges_ = np.array([[0, 0, 0, 0, 0, 4],
+                                    [1, 2, 3, 4, 5, 5]], dtype=int)
 
                 label = torch.tensor([df['cross'].factorize(['noCrossRoad', 'CrossRoad'])[0][i]], dtype=torch.long)
                 graph = Data(x=torch.tensor(x_).float(),
@@ -219,7 +228,7 @@ if __name__ == "__main__":
     dts = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='train')
     dts_test = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='test')
 
-    # División dinámica (80% train / 20% val)
+    #División dinámica (80% train / 20% val)
     train_size = int(0.8 * len(dts))
     val_size = len(dts) - train_size
     print(f"Dataset total: {len(dts)} | Train: {train_size} | Val: {val_size}")
@@ -230,11 +239,11 @@ if __name__ == "__main__":
 
     model = GraphLevelGNN(c_in=24, c_out=1, c_hidden=256,
                           dp_rate_linear=0.5, dp_rate=0.0,
-                          num_layers=3, layer_name="GCN")
+                          num_layers=3, layer_name="GraphConv")
 
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GCN_JAAD_numeric_14K",
+        name="GraphConv_JAAD_numeric_14K_Combinación",
         log_model=True
     )
 
