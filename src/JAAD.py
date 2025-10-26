@@ -121,7 +121,7 @@ class GraphLevelGNN(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=1e-3)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=1)
-        return {"optimizer": optimizer, "lr_scheduler": scheduler, "monitor": "train_loss"}
+        return {"optimizer": optimizer, "lr_scheduler": scheduler, "monitor": "val_loss"}
 
     #Fase de entrenamiento
     def training_step(self, batch, _):
@@ -132,8 +132,10 @@ class GraphLevelGNN(pl.LightningModule):
 
     #Fase de validación
     def validation_step(self, batch, _):
-        _, acc = self.forward(batch, "val")
+        loss, acc = self.forward(batch, "val")
+        self.log('val_loss', loss, prog_bar=True)
         self.log('val_acc', acc, prog_bar=True)
+        return loss
 
     #Fase de test
     def test_step(self, batch, _):
@@ -159,8 +161,10 @@ class JAAD(InMemoryDataset):
     def process(self):
         def create_graphs(csv_path, desc):
             df = pd.read_csv(csv_path)
+            #Ignorar columnas no necesarias
+            df = df.drop(columns=['video', 'frame', 'person'])
             n_rows = len(df.index)
-            n_feats = len([df[e].unique().size for e in df.drop(columns=['ped_id', 'cross'])])
+            n_feats = len([df[e].unique().size for e in df.drop(columns=['cross'])])
 
             #Construcción de características por nodo
             x = np.vstack([
@@ -169,27 +173,28 @@ class JAAD(InMemoryDataset):
                 np.pad(pd.get_dummies(df['orientation']).to_numpy(dtype=float), [(0, 0), (3, 17 - df['orientation'].nunique())], 'constant'),
                 np.pad(pd.get_dummies(df['proximity']).to_numpy(dtype=float), [(0, 0), (7, 13 - df['proximity'].nunique())], 'constant'),
                 np.pad(pd.get_dummies(df['distance']).to_numpy(dtype=float), [(0, 0), (10, 10 - df['distance'].nunique())], 'constant'),
-                np.pad(pd.get_dummies(df['action']).to_numpy(dtype=float), [(0, 0), (15, 5 - df['action'].nunique())], 'constant')
+                np.pad(pd.get_dummies(df['action']).to_numpy(dtype=float), [(0, 0), (15, 5 - df['action'].nunique())], 'constant'),
+                np.pad(pd.get_dummies(df['zebra_cross']).to_numpy(dtype=float), [(0, 0), (18, 2 - df['zebra_cross'].nunique())], 'constant')
             ])
 
             data_list = []
             for i in tqdm(range(n_rows), desc=desc):
-                x_ = np.empty((0, 20))
+                x_ = np.empty((0, 24))
                 x_ = np.vstack([x_, x[i]])
                 for j in range(n_feats):
                     x_ = np.vstack([x_, x[n_rows * (j + 1) + i]])
 
                 #Grafo de Angie
-                #edges_ = np.array([[0, 0, 0, 0, 0],
-                #                    [1, 2, 3, 4, 5]], dtype=int)
+                edges_ = np.array([[0, 0, 0, 0, 0, 0],
+                                    [1, 2, 3, 4, 5, 6]], dtype=int)
 
                 #Grafo de Adrián
                 #edges_ = np.array([[0, 0, 0, 0, 4],
                 #                    [1, 2, 3, 4, 5]], dtype=int)
 
                 #Grafo propuesto en la reunión
-                edges_ = np.array([[0, 0, 0, 0, 0, 4],
-                                    [1, 2, 3, 4, 5, 5]], dtype=int)
+                #edges_ = np.array([[0, 0, 0, 0, 0, 4],
+                #                    [1, 2, 3, 4, 5, 5]], dtype=int)
 
                 label = torch.tensor([df['cross'].factorize(['noCrossRoad', 'CrossRoad'])[0][i]], dtype=torch.long)
                 graph = Data(x=torch.tensor(x_).float(),
@@ -198,37 +203,45 @@ class JAAD(InMemoryDataset):
                 data_list.append(graph)
             return data_list
 
-        data_list = create_graphs('datasets/dataJAAD.csv', "Procesando JAAD (train)")
+        data_list = create_graphs('datasets/JAAD_14K_TRAIN.csv', "Procesando JAAD (train)")
         self.save(data_list, self.processed_paths[0])
-        data_list_test = create_graphs('datasets/JAAD_TEST.csv', "Procesando JAAD (test)")
+        data_list_test = create_graphs('datasets/JAAD_14K_TRAIN.csv', "Procesando JAAD (test)")
         self.save(data_list_test, self.processed_paths[1])
 
 
 #Entrenamiento del modelo con el dataset JAAD
 if __name__ == "__main__":
     pl.seed_everything(42)
+    #Determinismo
+    #torch.use_deterministic_algorithms(True)
+    #os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
     dts = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='train')
     dts_test = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='test')
 
-    train_loader = DataLoader(dts[:13000], batch_size=GLOBAL_BATCH_SIZE, shuffle=True, num_workers=8)
-    val_loader = DataLoader(dts[13000:14000], batch_size=GLOBAL_BATCH_SIZE, shuffle=False, num_workers=8)
-    test_loader = DataLoader(dts_test, batch_size=GLOBAL_BATCH_SIZE, shuffle=False, num_workers=8)
+    # División dinámica (80% train / 20% val)
+    train_size = int(0.8 * len(dts))
+    val_size = len(dts) - train_size
+    print(f"Dataset total: {len(dts)} | Train: {train_size} | Val: {val_size}")
 
-    model = GraphLevelGNN(c_in=20, c_out=1, c_hidden=256,
+    train_loader = DataLoader(dts[:train_size], batch_size=GLOBAL_BATCH_SIZE, shuffle=True, num_workers=4)
+    val_loader = DataLoader(dts[train_size:], batch_size=GLOBAL_BATCH_SIZE, shuffle=False, num_workers=4)
+    test_loader = DataLoader(dts_test, batch_size=GLOBAL_BATCH_SIZE, shuffle=False, num_workers=4)
+
+    model = GraphLevelGNN(c_in=24, c_out=1, c_hidden=256,
                           dp_rate_linear=0.5, dp_rate=0.0,
-                          num_layers=3, layer_name="GraphConv")
+                          num_layers=3, layer_name="GCN")
 
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GraphConv_JAAD_grafo_Combinación",
+        name="GCN_JAAD_numeric_14K",
         log_model=True
     )
 
     trainer = pl.Trainer(
         default_root_dir=os.path.join(CHECKPOINT_PATH, "GraphLevelJAAD"),
-        callbacks=[ModelCheckpoint(save_weights_only=True, monitor="val_acc", mode="max"),
-                   EarlyStopping('val_acc')],
+        callbacks=[ModelCheckpoint(save_weights_only=True, monitor="val_acc", mode="max"), 
+                   EarlyStopping(monitor="val_loss", patience=3, mode="min")],
         accelerator="gpu" if str(device).startswith("cuda") else "cpu",
         devices=1,
         max_epochs=GLOBAL_MAX_EPOCHS,
