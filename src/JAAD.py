@@ -164,7 +164,7 @@ class JAAD(InMemoryDataset):
             #Ignorar columnas no necesarias
             df = df.drop(columns=['video', 'frame', 'person'])
             n_rows = len(df.index)
-            n_feats = len([df[e].unique().size for e in df.drop(columns=['cross'])])
+            n_feats = 6 #6 para numeric, 7 para linguistic
 
             #Construcción de características por nodo
             def pad_feature(arr, left, right, total=24):
@@ -176,15 +176,50 @@ class JAAD(InMemoryDataset):
                     arr_padded = arr_padded[:, :total]
                 return arr_padded
 
+            #Preprocesamiento de la columna rules
+            """df['rules'] = df['rules'].fillna('').astype(str)
+            all_rules = set()
+            for r in df['rules']:
+                all_rules.update([x.strip() for x in r.split(',') if x.strip() != ''])
+            all_rules = sorted(list(all_rules))
+
+            #Creación de una matriz binaria manualmente
+            rules_matrix = np.zeros((len(df), len(all_rules)), dtype=float)
+            for i, r in enumerate(df['rules']):
+                labels = [x.strip() for x in r.split(',') if x.strip() != '']
+                for label in labels:
+                    if label in all_rules:
+                        rules_matrix[i, all_rules.index(label)] = 1.0
+
+            #Nos aseguramos de que el tamaño final sea de 24 columnas
+            if rules_matrix.shape[1] < 24:
+                rules_matrix = np.pad(rules_matrix, [(0, 0), (0, 24 - rules_matrix.shape[1])], 'constant')
+            elif rules_matrix.shape[1] > 24:
+                rules_matrix = rules_matrix[:, :24]"""
+
+            #Construcción de nodos para el dataset numérico
             x = np.vstack([
-                pad_feature(np.zeros(n_rows)[np.newaxis].T, 0, 19),
-                pad_feature(pd.get_dummies(df['attention']).to_numpy(dtype=float), 1, 19 - df['attention'].nunique()),
-                pad_feature(pd.get_dummies(df['orientation']).to_numpy(dtype=float), 3, 17 - df['orientation'].nunique()),
-                pad_feature(pd.get_dummies(df['proximity']).to_numpy(dtype=float), 7, 13 - df['proximity'].nunique()),
-                pad_feature(df[['distance']].to_numpy(dtype=float), 10, 9),
-                pad_feature(pd.get_dummies(df['action']).to_numpy(dtype=float), 15, 5 - df['action'].nunique()),
-                pad_feature(pd.get_dummies(df['zebra_cross']).to_numpy(dtype=float), 18, 2 - df['zebra_cross'].nunique())
+            pad_feature(np.zeros(n_rows)[np.newaxis].T, 0, 19),
+            pad_feature(pd.get_dummies(df['attention']).to_numpy(dtype=float), 1, 19 - df['attention'].nunique()),
+            pad_feature(pd.get_dummies(df['orientation']).to_numpy(dtype=float), 3, 17 - df['orientation'].nunique()),
+            pad_feature(pd.get_dummies(df['proximity']).to_numpy(dtype=float), 7, 13 - df['proximity'].nunique()),
+            pad_feature(df[['distance']].to_numpy(dtype=float), 10, 9),
+            pad_feature(pd.get_dummies(df['action']).to_numpy(dtype=float), 15, 5 - df['action'].nunique()),
+            pad_feature(pd.get_dummies(df['zebra_cross']).to_numpy(dtype=float), 18, 2 - df['zebra_cross'].nunique())
             ])
+
+
+            #Construcción de nodos para el dataset lingüístico
+            """x = np.vstack([
+                np.pad(np.zeros((n_rows, 1)), [(0, 0), (0, 23)], 'constant'),
+                np.pad(pd.get_dummies(df['attention']).to_numpy(dtype=float), [(0, 0), (1, 23 - df['attention'].nunique())], 'constant'),
+                np.pad(pd.get_dummies(df['orientation']).to_numpy(dtype=float), [(0, 0), (3, 21 - df['orientation'].nunique())], 'constant'),
+                np.pad(pd.get_dummies(df['proximity']).to_numpy(dtype=float), [(0, 0), (7, 17 - df['proximity'].nunique())], 'constant'),
+                np.pad(pd.get_dummies(df['distance']).to_numpy(dtype=float), [(0, 0), (10, 14 - df['distance'].nunique())], 'constant'),
+                np.pad(pd.get_dummies(df['action']).to_numpy(dtype=float), [(0, 0), (15, 9 - df['action'].nunique())], 'constant'),
+                np.pad(pd.get_dummies(df['zebra_cross']).to_numpy(dtype=float), [(0, 0), (18, 6 - df['zebra_cross'].nunique())], 'constant'),
+                rules_matrix
+            ])"""
 
             data_list = []
             for i in tqdm(range(n_rows), desc=desc):
@@ -212,6 +247,7 @@ class JAAD(InMemoryDataset):
                 data_list.append(graph)
             return data_list
 
+        #JAAD_14K_TRAIN / LINGUISTIC_JAAD_TRAIN_14K
         data_list = create_graphs('datasets/JAAD_14K_TRAIN.csv', "Procesando JAAD (train)")
         self.save(data_list, self.processed_paths[0])
         data_list_test = create_graphs('datasets/JAAD_14K_TRAIN.csv', "Procesando JAAD (test)")
@@ -243,7 +279,7 @@ if __name__ == "__main__":
 
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GraphConv_JAAD_numeric_14K_Combinación",
+        name="GraphConv_JAAD_linguistic_14K_Combinación",
         log_model=True
     )
 
