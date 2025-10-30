@@ -255,7 +255,7 @@ class JAAD(InMemoryDataset):
 
 
 #Entrenamiento del modelo con el dataset JAAD
-if __name__ == "__main__":
+"""if __name__ == "__main__":
     pl.seed_everything(42)
     #Determinismo
     #torch.use_deterministic_algorithms(True)
@@ -299,4 +299,61 @@ if __name__ == "__main__":
 
     print("\nEvaluación final del modelo JAAD:")
     trainer.test(best_model, dataloaders=test_loader, verbose=True)
-    wandb.finish()
+    wandb.finish()"""
+
+if __name__ == "__main__":
+    seeds = list(range(30))  #30 semillas distintas
+    results = []
+
+    for seed in seeds:
+        print(f"\n🔹 Ejecutando experimento con semilla {seed}")
+        pl.seed_everything(seed)
+
+        dts = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='train')
+        dts_test = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='test')
+
+        #División dinámica (80% train / 20% val)
+        train_size = int(0.8 * len(dts))
+        val_size = len(dts) - train_size
+        print(f"Dataset total: {len(dts)} | Train: {train_size} | Val: {val_size}")
+
+        train_loader = DataLoader(dts[:train_size], batch_size=GLOBAL_BATCH_SIZE, shuffle=True, num_workers=4)
+        val_loader = DataLoader(dts[train_size:], batch_size=GLOBAL_BATCH_SIZE, shuffle=False, num_workers=4)
+        test_loader = DataLoader(dts_test, batch_size=GLOBAL_BATCH_SIZE, shuffle=False, num_workers=4)
+
+        model = GraphLevelGNN(
+            c_in=24, c_out=1, c_hidden=256,
+            dp_rate_linear=0.5, dp_rate=0.0,
+            num_layers=3, layer_name="GraphConv"
+        )
+
+        wandb_logger = WandbLogger(
+            project="tfg",
+            name=f"GraphConv_JAAD_robustez_seed_{seed}",
+            log_model=False
+        )
+
+        trainer = pl.Trainer(
+            default_root_dir=os.path.join(CHECKPOINT_PATH, f"seed_{seed}"),
+            callbacks=[
+                ModelCheckpoint(save_weights_only=True, monitor="val_acc", mode="max"),
+                EarlyStopping(monitor="val_loss", patience=3, mode="min")
+            ],
+            accelerator="gpu" if str(device).startswith("cuda") else "cpu",
+            devices=1,
+            max_epochs=GLOBAL_MAX_EPOCHS,
+            enable_progress_bar=True,
+            logger=wandb_logger
+        )
+
+        trainer.fit(model, train_loader, val_loader)
+
+        best_model = GraphLevelGNN.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
+
+        test_result = trainer.test(best_model, dataloaders=test_loader, verbose=False)
+        test_acc = test_result[0]["test_acc"]
+        print(f"✅ Seed {seed} -> Test Accuracy: {test_acc:.4f}")
+        results.append({"seed": seed, "test_acc": test_acc})
+
+        wandb.log({"test_acc": test_acc})
+        wandb.finish()
