@@ -251,7 +251,7 @@ class JAAD(InMemoryDataset):
                 data_list.append(graph)
             return data_list"""
 
-            #Grafo espaciotemporal (versión mínima)
+            #Grafo espaciotemporal
             data_list = []
             window_size = 3 #Número de frames por grafo
             step = 1
@@ -285,7 +285,7 @@ class JAAD(InMemoryDataset):
                                             [1, 2, 3, 4, 5, 5]], dtype=int) + i * (n_feats + 1)
                     edge_index.append(spatial_edges)
 
-                    #Conexión temporal entre nodos pedestrian
+                    #Conexión temporal entre nodos pedestrian de frames consecutivos
                     """if i > 0:
                         temporal_edge = np.array([[0 + (i - 1) * (n_feats + 1)],
                                                 [0 + i * (n_feats + 1)]], dtype=int)
@@ -346,7 +346,7 @@ if __name__ == "__main__":
 
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GraphConv_JAAD_14K_SpatioTemporal_Combinación",
+        name="GraphConv_JAAD_14K_FullSpatioTemporal_Combinación",
         log_model=True
     )
 
