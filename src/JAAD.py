@@ -176,7 +176,7 @@ class JAAD(InMemoryDataset):
                     arr_padded = arr_padded[:, :total]
                 return arr_padded
 
-            #Preprocesamiento de la columna rules
+            #Preprocesamiento de la columna rules para el dataset lingüístico
             """df['rules'] = df['rules'].fillna('').astype(str)
             all_rules = set()
             for r in df['rules']:
@@ -221,7 +221,7 @@ class JAAD(InMemoryDataset):
                 rules_matrix
             ])"""
 
-            data_list = []
+            """data_list = []
             for i in tqdm(range(n_rows), desc=desc):
                 x_ = np.empty((0, 24))
                 x_ = np.vstack([x_, x[i]])
@@ -229,6 +229,10 @@ class JAAD(InMemoryDataset):
                     x_ = np.vstack([x_, x[n_rows * (j + 1) + i]])
 
                 #Grafo de Angie
+                #edges_ = np.array([[0, 0, 0, 0, 0],
+                #                    [1, 2, 3, 4, 5]], dtype=int)
+
+                #Grafo de Angie (lingüístico)
                 #edges_ = np.array([[0, 0, 0, 0, 0, 0],
                 #                    [1, 2, 3, 4, 5, 6]], dtype=int)
 
@@ -245,6 +249,69 @@ class JAAD(InMemoryDataset):
                              edge_index=torch.tensor(edges_, dtype=torch.long),
                              y=label)
                 data_list.append(graph)
+            return data_list"""
+
+            #Grafo espaciotemporal (versión mínima)
+            data_list = []
+            window_size = 3 #Número de frames por grafo
+            step = 1
+
+            for start in tqdm(range(0, n_rows - window_size, step), desc=desc):
+                end = start + window_size
+                #Agrupar los frames consecutivos
+                frames_window = df.iloc[start:end]
+                x_window = []
+                edge_index = []
+
+                for i, row_idx in enumerate(range(start, end)):
+                    x_frame = np.empty((0, 24))
+                    x_frame = np.vstack([x_frame, x[row_idx]])
+                    for j in range(n_feats):
+                        x_frame = np.vstack([x_frame, x[n_rows * (j + 1) + row_idx]])
+                    x_window.append(x_frame)
+
+                    #Grafo de Angie
+                    #spatial_edges = np.array([[0, 0, 0, 0, 0],
+                    #                        [1, 2, 3, 4, 5]], dtype=int) + i * (n_feats + 1)
+                    #edge_index.append(spatial_edges)
+
+                    #Grafo de Adrián
+                    #spatial_edges = np.array([[0, 0, 0, 0, 4],
+                    #                        [1, 2, 3, 4, 5]], dtype=int) + i * (n_feats + 1)
+                    #edge_index.append(spatial_edges)
+
+                    #Grafo propuesto en la reunión
+                    spatial_edges = np.array([[0, 0, 0, 0, 0, 4],
+                                            [1, 2, 3, 4, 5, 5]], dtype=int) + i * (n_feats + 1)
+                    edge_index.append(spatial_edges)
+
+                    #Conexión temporal entre nodos pedestrian
+                    """if i > 0:
+                        temporal_edge = np.array([[0 + (i - 1) * (n_feats + 1)],
+                                                [0 + i * (n_feats + 1)]], dtype=int)
+                        edge_index.append(temporal_edge)"""
+
+                    #Conexiones temporales entre todos los nodos equivalentes de frames consecutivos
+                    if i > 0:
+                        for node_id in range(n_feats + 1):
+                            prev_node = node_id + (i - 1) * (n_feats + 1)
+                            curr_node = node_id + i * (n_feats + 1)
+                            temporal_edge = np.array([[prev_node], [curr_node]], dtype=int)
+                            edge_index.append(temporal_edge)
+
+                #Unir todo
+                x_combined = np.vstack(x_window)
+                edges_combined = np.hstack(edge_index)
+                encoded_labels = frames_window['cross'].map({'not-crossing': 0, 'crossing': 1, 'noCrossRoad': 0, 'CrossRoad': 1})
+                label = torch.tensor([encoded_labels.mode()[0]], dtype=torch.long)
+
+                graph = Data(
+                    x=torch.tensor(x_combined).float(),
+                    edge_index=torch.tensor(edges_combined, dtype=torch.long),
+                    y=label
+                )
+                data_list.append(graph)
+
             return data_list
 
         #JAAD_14K_TRAIN / LINGUISTIC_JAAD_TRAIN_14K
@@ -255,7 +322,7 @@ class JAAD(InMemoryDataset):
 
 
 #Entrenamiento del modelo con el dataset JAAD
-"""if __name__ == "__main__":
+if __name__ == "__main__":
     pl.seed_everything(42)
     #Determinismo
     #torch.use_deterministic_algorithms(True)
@@ -279,7 +346,7 @@ class JAAD(InMemoryDataset):
 
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GraphConv_JAAD_linguistic_14K_Combinación",
+        name="GraphConv_JAAD_14K_SpatioTemporal_Combinación",
         log_model=True
     )
 
@@ -299,9 +366,10 @@ class JAAD(InMemoryDataset):
 
     print("\nEvaluación final del modelo JAAD:")
     trainer.test(best_model, dataloaders=test_loader, verbose=True)
-    wandb.finish()"""
+    wandb.finish()
 
-if __name__ == "__main__":
+#Probar las 30 semillas
+"""if __name__ == "__main__":
     seeds = list(range(30))  #30 semillas distintas
     results = []
 
@@ -356,4 +424,4 @@ if __name__ == "__main__":
         results.append({"seed": seed, "test_acc": test_acc})
 
         wandb.log({"test_acc": test_acc})
-        wandb.finish()
+        wandb.finish()"""
