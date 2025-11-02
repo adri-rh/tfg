@@ -228,21 +228,21 @@ class JAAD(InMemoryDataset):
                 for j in range(n_feats):
                     x_ = np.vstack([x_, x[n_rows * (j + 1) + i]])
 
-                #Grafo de Angie
-                #edges_ = np.array([[0, 0, 0, 0, 0],
-                #                    [1, 2, 3, 4, 5]], dtype=int)
+            #Grafo de Angie
+            #edges_ = np.array([[0, 0, 0, 0, 0],
+            #                    [1, 2, 3, 4, 5]], dtype=int)
 
-                #Grafo de Angie (lingüístico)
-                #edges_ = np.array([[0, 0, 0, 0, 0, 0],
-                #                    [1, 2, 3, 4, 5, 6]], dtype=int)
+            #Grafo de Angie (lingüístico)
+            #edges_ = np.array([[0, 0, 0, 0, 0, 0],
+            #                    [1, 2, 3, 4, 5, 6]], dtype=int)
 
-                #Grafo de Adrián
-                #edges_ = np.array([[0, 0, 0, 0, 4],
-                #                    [1, 2, 3, 4, 5]], dtype=int)
+            #Grafo de Adrián
+            #edges_ = np.array([[0, 0, 0, 0, 4],
+            #                    [1, 2, 3, 4, 5]], dtype=int)
 
-                #Grafo propuesto en la reunión
-                edges_ = np.array([[0, 0, 0, 0, 0, 4],
-                                    [1, 2, 3, 4, 5, 5]], dtype=int)
+            #Grafo propuesto en la reunión
+            edges_ = np.array([[0, 0, 0, 0, 0, 4],
+                                [1, 2, 3, 4, 5, 5]], dtype=int)
 
                 label = torch.tensor([df['cross'].factorize(['noCrossRoad', 'CrossRoad'])[0][i]], dtype=torch.long)
                 graph = Data(x=torch.tensor(x_).float(),
@@ -263,45 +263,66 @@ class JAAD(InMemoryDataset):
                 x_window = []
                 edge_index = []
 
-                for i, row_idx in enumerate(range(start, end)):
+                #Grafo espaciotemporal completo
+                """for i, row_idx in enumerate(range(start, end)):
                     x_frame = np.empty((0, 24))
                     x_frame = np.vstack([x_frame, x[row_idx]])
                     for j in range(n_feats):
                         x_frame = np.vstack([x_frame, x[n_rows * (j + 1) + row_idx]])
-                    x_window.append(x_frame)
+                    x_window.append(x_frame)"""
 
-                    #Grafo de Angie
-                    #spatial_edges = np.array([[0, 0, 0, 0, 0],
-                    #                        [1, 2, 3, 4, 5]], dtype=int) + i * (n_feats + 1)
-                    #edge_index.append(spatial_edges)
+                #Grafo de Angie
+                #spatial_edges = np.array([[0, 0, 0, 0, 0],
+                #                        [1, 2, 3, 4, 5]], dtype=int) + i * (n_feats + 1)
+                #edge_index.append(spatial_edges)
 
-                    #Grafo de Adrián
-                    #spatial_edges = np.array([[0, 0, 0, 0, 4],
-                    #                        [1, 2, 3, 4, 5]], dtype=int) + i * (n_feats + 1)
-                    #edge_index.append(spatial_edges)
+                #Grafo de Adrián
+                #spatial_edges = np.array([[0, 0, 0, 0, 4],
+                #                        [1, 2, 3, 4, 5]], dtype=int) + i * (n_feats + 1)
+                #edge_index.append(spatial_edges)
 
-                    #Grafo propuesto en la reunión
-                    spatial_edges = np.array([[0, 0, 0, 0, 0, 4],
-                                            [1, 2, 3, 4, 5, 5]], dtype=int) + i * (n_feats + 1)
-                    edge_index.append(spatial_edges)
+                #Grafo propuesto en la reunión
+                #spatial_edges = np.array([[0, 0, 0, 0, 0, 4],
+                #                        [1, 2, 3, 4, 5, 5]], dtype=int) + i * (n_feats + 1)
+                #edge_index.append(spatial_edges)
 
                     #Conexión temporal entre nodos pedestrian de frames consecutivos
-                    """if i > 0:
-                        temporal_edge = np.array([[0 + (i - 1) * (n_feats + 1)],
-                                                [0 + i * (n_feats + 1)]], dtype=int)
-                        edge_index.append(temporal_edge)"""
+                    #"""if i > 0:
+                    #    temporal_edge = np.array([[0 + (i - 1) * (n_feats + 1)],
+                    #                            [0 + i * (n_feats + 1)]], dtype=int)
+                    #    edge_index.append(temporal_edge)"""
 
                     #Conexiones temporales entre todos los nodos equivalentes de frames consecutivos
-                    if i > 0:
-                        for node_id in range(n_feats + 1):
-                            prev_node = node_id + (i - 1) * (n_feats + 1)
-                            curr_node = node_id + i * (n_feats + 1)
-                            temporal_edge = np.array([[prev_node], [curr_node]], dtype=int)
-                            edge_index.append(temporal_edge)
+                    #"""if i > 0:
+                    #    for node_id in range(n_feats + 1):
+                    #        prev_node = node_id + (i - 1) * (n_feats + 1)
+                    #        curr_node = node_id + i * (n_feats + 1)
+                    #        temporal_edge = np.array([[prev_node], [curr_node]], dtype=int)
+                    #        edge_index.append(temporal_edge)"""
+                
+                #Promedio para el sliding windows
+                x_window = []
+                for j in range(n_feats + 1):
+                    idxs = [n_rows * j + i for i in range(start, end)]
+                    x_window.append(x[idxs].mean(axis=0))
+
+                #Grafo de Angie
+                #edges_ = np.array([[0, 0, 0, 0, 0],
+                #                    [1, 2, 3, 4, 5]], dtype=int)
+
+                #Grafo de Adrián
+                #edges_ = np.array([[0, 0, 0, 0, 4],
+                #                    [1, 2, 3, 4, 5]], dtype=int)
+
+                #Grafo propuesto en la reunión
+                edges_ = np.array([[0, 0, 0, 0, 0, 4],
+                                    [1, 2, 3, 4, 5, 5]], dtype=int)
+
 
                 #Unir todo
                 x_combined = np.vstack(x_window)
-                edges_combined = np.hstack(edge_index)
+                #edges_combined = np.hstack(edge_index) #Combinar frames y edges
+                edges_combined = edges_ #Combinar solo edges
                 encoded_labels = frames_window['cross'].map({'not-crossing': 0, 'crossing': 1, 'noCrossRoad': 0, 'CrossRoad': 1})
                 label = torch.tensor([encoded_labels.mode()[0]], dtype=torch.long)
 
@@ -346,7 +367,7 @@ if __name__ == "__main__":
 
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GraphConv_JAAD_14K_FullSpatioTemporal_Combinación",
+        name="GraphConv_JAAD_14K_SlidingWindows_Combinación",
         log_model=True
     )
 
