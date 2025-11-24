@@ -336,6 +336,7 @@ if __name__ == "__main__":
     #torch.use_deterministic_algorithms(True)
     #os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
+    #Borrar datos procesados antes de crear el dataset
     for f in ["data/processed/data_jaad.pt", "data/processed/data_jaad_test.pt"]:
         if os.path.exists(f):
             os.remove(f)
@@ -390,6 +391,12 @@ if __name__ == "__main__":
         print(f"\n🔹 Ejecutando experimento con semilla {seed}")
         pl.seed_everything(seed)
 
+        #Borrar datos procesados antes de crear el dataset
+        for f in ["data/processed/data_jaad.pt", "data/processed/data_jaad_test.pt"]:
+            if os.path.exists(f):
+                os.remove(f)
+                print("Borrado:", f)
+
         dts = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='train')
         dts_test = JAAD(root='data', transform=T.Compose([T.ToUndirected()]), mode='test')
 
@@ -437,4 +444,21 @@ if __name__ == "__main__":
         results.append({"seed": seed, "test_acc": test_acc})
 
         wandb.log({"test_acc": test_acc})
-        wandb.finish()"""
+        wandb.finish()
+        
+    #Análisis estadístico de semillas
+    acc_values = np.array([r["test_acc"] for r in results])
+
+    mean_acc = acc_values.mean()
+    std_acc = acc_values.std()
+    min_acc = acc_values.min()
+    max_acc = acc_values.max()
+    range_acc = max_acc - min_acc
+
+    print("\n================= RESULTADOS ESTADÍSTICOS =================")
+    print(f"📌 Test Accuracy medio (media):      {mean_acc:.4f}")
+    print(f"📌 Desviación típica:               {std_acc:.4f}")
+    print(f"📌 Valor mínimo:                     {min_acc:.4f}")
+    print(f"📌 Valor máximo:                     {max_acc:.4f}")
+    print(f"📌 Rango (máx - mín):                {range_acc:.4f}")
+    print("============================================================\n")"""
