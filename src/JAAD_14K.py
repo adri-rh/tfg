@@ -301,7 +301,7 @@ class JAAD(InMemoryDataset):
 
             return data_list
 
-        data_list = create_graphs('datasets/JAAD_16K_TRAIN.csv', "Procesando JAAD (train)")
+        data_list = create_graphs('datasets/JAAD_14K_TRAIN.csv', "Procesando JAAD (train)")
         self.save(data_list, self.processed_paths[0])
         data_list_test = create_graphs('datasets/TEST_JAAD_ALL.csv', "Procesando JAAD (test)")
         self.save(data_list_test, self.processed_paths[1])
@@ -337,7 +337,7 @@ if __name__ == "__main__":
 
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GraphConv_JAAD_16K_TRAIN_SlidingWindows_Combinación",
+        name="GraphConv_JAAD_14K_SlidingWindows_Combinación",
         log_model=True
     )
 

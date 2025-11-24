@@ -337,7 +337,7 @@ if __name__ == "__main__":
 
     wandb_logger = WandbLogger(
         project="tfg",
-        name="GraphConv_JAAD_18K_TRAIN_SlidingWindows_Combinación",
+        name="GraphConv_JAAD_18K_SlidingWindows_Combinación",
         log_model=True
     )
 
