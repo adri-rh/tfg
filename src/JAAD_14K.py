@@ -344,7 +344,7 @@ class JAAD(InMemoryDataset):
 if __name__ == "__main__":
     pl.seed_everything(42)
 
-    #Borrar datos previos
+    #Borrar los datos procesados
     for f in ["data/processed/data_jaad.pt", "data/processed/data_jaad_test.pt"]:
         if os.path.exists(f):
             os.remove(f)
@@ -415,7 +415,7 @@ if __name__ == "__main__":
         print(f"\nEjecutando experimento con semilla {seed}")
         pl.seed_everything(seed)
 
-        # Borrar datos procesados
+        #Borrar los datos procesados
         for f in ["data/processed/data_jaad.pt", "data/processed/data_jaad_test.pt"]:
             if os.path.exists(f):
                 os.remove(f)
@@ -476,7 +476,7 @@ if __name__ == "__main__":
         wandb.log({"test_acc": test_acc})
         wandb.finish()
 
-    # Estadísticas
+    #Estadísticas
     accs = np.array([r["test_acc"] for r in results])
     print("Media:", accs.mean())
     print("STD:", accs.std())
