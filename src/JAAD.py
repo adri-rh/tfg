@@ -42,7 +42,7 @@ GRAPH_TYPE = 0
 #1 = Conexión peatón entre frames
 #2 = Conexión completa entre nodos
 #3 = Ventanas deslizantes
-TEMPORAL_TYPE = 3
+TEMPORAL_TYPE = 0
 
 #Parámetros de las ventanas deslizantes (exclusivo de TEMPORAL_TYPE = 3)
 WINDOW_SIZE = 3
@@ -84,7 +84,7 @@ USE_WANDB = True
 WANDB_PROJECT = "tfg"
 
 #Modelos e hiperparámetros
-MODEL_NAME = "GraphConv"   #"GCN", "GAT", "GraphConv"
+MODEL_NAME = "GCN"   #"GCN", "GAT", "GraphConv"
 C_IN = 24
 C_HIDDEN = 256
 C_OUT = 1
@@ -298,6 +298,12 @@ class JAAD(InMemoryDataset):
 
                 return data_list
 
+
+            #Eliminar columnas sobrantes si existen
+            for col in ['video', 'frame', 'person']:
+                if col in df.columns:
+                    df = df.drop(columns=[col])
+
             #Feature encoding
             if self._temporal_type == 3:
 
@@ -366,8 +372,6 @@ class JAAD(InMemoryDataset):
                     data_list.append(graph)
 
             return data_list
-
-
 
         #Crear entrenamiento y test
         train_list = create_graphs(self._csv_train, "Procesando JAAD (train)")
