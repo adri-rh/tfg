@@ -26,13 +26,16 @@ import wandb
 
 #Configuración global (Las variables son modificables para probar los distintos casos)
 
+#Modo multipeatón (True = grafo por escena (multi-pedestrian), False = grafo por peatón/temporal (single-pedestrian))
+MULTI_PEDESTRIAN = True
+
 #Opciones de grafos y opciones temporales
 
 #Tipo de grafo espacial
 #0 = Angie
 #1 = Adrián
 #2 = Combinación del grafo 0 y grafo 1
-GRAPH_TYPE = 2
+GRAPH_TYPE = 0
 
 #Tipo de dependencias temporales
 #0 = Sin conexiones temporales
@@ -234,11 +237,6 @@ class JAAD(InMemoryDataset):
             df = pd.read_csv(csv_path)
             df['cross'] = df['cross'].astype(str)
 
-            #Eliminar columnas sobrantes si existen
-            for col in ['video', 'frame', 'person']:
-                if col in df.columns:
-                    df = df.drop(columns=[col])
-
             n_rows = len(df)
             n_feats = 6
 
@@ -250,20 +248,57 @@ class JAAD(InMemoryDataset):
                 return arr[:, :total]
 
             block_list = [
-                pad_feature(np.zeros((n_rows, 1)), 0, 19),  # dummy node
-                pad_feature(pd.get_dummies(df.get('attention', 0)).to_numpy(float), 1, 19 - df['attention'].nunique() if 'attention' in df else 19),
-                pad_feature(pd.get_dummies(df.get('orientation', 0)).to_numpy(float), 3, 17 - df['orientation'].nunique() if 'orientation' in df else 17),
-                pad_feature(pd.get_dummies(df.get('proximity', 0)).to_numpy(float), 7, 13 - df['proximity'].nunique() if 'proximity' in df else 13),
-                pad_feature(df[['distance']].to_numpy(float) if 'distance' in df else np.zeros((n_rows,1)), 10, 9),
-                pad_feature(pd.get_dummies(df.get('action', 0)).to_numpy(float), 15, 5 - df['action'].nunique() if 'action' in df else 5),
-                pad_feature(pd.get_dummies(df.get('zebra_cross', 0)).to_numpy(float), 18, 2 - df['zebra_cross'].nunique() if 'zebra_cross' in df else 2),
+                pad_feature(np.zeros((n_rows, 1)), 0, 19),
+                pad_feature(pd.get_dummies(df.get('attention', 0)).to_numpy(float), 1, 19),
+                pad_feature(pd.get_dummies(df.get('orientation', 0)).to_numpy(float), 3, 17),
+                pad_feature(pd.get_dummies(df.get('proximity', 0)).to_numpy(float), 7, 13),
+                pad_feature(df[['distance']].to_numpy(float), 10, 9),
+                pad_feature(pd.get_dummies(df.get('action', 0)).to_numpy(float), 15, 5),
+                pad_feature(pd.get_dummies(df.get('zebra_cross', 0)).to_numpy(float), 18, 2),
             ]
 
             x = np.vstack(block_list)
             spatial_base = build_spatial_edges(self._graph_type)
             data_list = []
 
-            #Ventanas deslizantes
+            #Feature encoding
+            if MULTI_PEDESTRIAN:
+
+                scene_groups = df.groupby(["video", "frame"])
+
+                for (video, frame), scene_df in tqdm(scene_groups, desc=desc):
+
+                    row_idxs = scene_df.index.to_numpy()
+                    x_scene = x[row_idxs]
+                    num_nodes = x_scene.shape[0]
+
+                    if num_nodes < 2:
+                        continue  # opcional: descartar escenas con 1 peatón
+
+                    edges = []
+                    for i in range(num_nodes):
+                        for j in range(num_nodes):
+                            if i != j:
+                                edges.append([i, j])
+
+                    edge_index = torch.tensor(edges, dtype=torch.long).T
+
+                    label_val = scene_df['cross'].map(
+                        {'not-crossing': 0, 'crossing': 1,
+                        'noCrossRoad': 0, 'CrossRoad': 1}
+                    ).mode()[0]
+
+                    graph = Data(
+                        x=torch.tensor(x_scene).float(),
+                        edge_index=edge_index,
+                        y=torch.tensor([label_val], dtype=torch.long)
+                    )
+
+                    data_list.append(graph)
+
+                return data_list
+
+            #Feature encoding
             if self._temporal_type == 3:
 
                 for start in tqdm(range(0, n_rows - self._window_size + 1, self._window_step), desc=desc):
@@ -332,6 +367,8 @@ class JAAD(InMemoryDataset):
 
             return data_list
 
+
+
         #Crear entrenamiento y test
         train_list = create_graphs(self._csv_train, "Procesando JAAD (train)")
         self.save(train_list, self.processed_paths[0])
@@ -379,7 +416,7 @@ if __name__ == "__main__":
 
     wandb_logger = WandbLogger(
         project=WANDB_PROJECT,
-        name=f"{MODEL_NAME}_{DATASET_NAME}_Grafo {GRAPH_TYPE}_Dependencia temporal {TEMPORAL_TYPE}",
+        name=f"{MODEL_NAME}_{DATASET_NAME}_Grafo {GRAPH_TYPE}_Dependencia temporal {TEMPORAL_TYPE}_Multipeatón {MULTI_PEDESTRIAN}",
         log_model=True
     ) if USE_WANDB else None
 
