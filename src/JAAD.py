@@ -72,7 +72,7 @@ DATASETS = {
 }
 
 #Selección de dataset para ejecutar
-DATASET_NAME = "JAAD_16K"
+DATASET_NAME = "JAAD_14K"
 
 #Entrenamiento
 GLOBAL_BATCH_SIZE = 100
@@ -273,7 +273,7 @@ class JAAD(InMemoryDataset):
                     num_nodes = x_scene.shape[0]
 
                     if num_nodes < 2:
-                        continue  # opcional: descartar escenas con 1 peatón
+                        continue  #Descartar escenas con 1 peatón
 
                     edges = []
                     for i in range(num_nodes):
@@ -283,10 +283,17 @@ class JAAD(InMemoryDataset):
 
                     edge_index = torch.tensor(edges, dtype=torch.long).T
 
+                    #Etiqueta cross por mayoría
                     label_val = scene_df['cross'].map(
                         {'not-crossing': 0, 'crossing': 1,
                         'noCrossRoad': 0, 'CrossRoad': 1}
                     ).mode()[0]
+
+                    #Etiqueta cross positiva si al menos cruza un peatón
+                    """label_val = scene_df['cross'].map(
+                        {'not-crossing': 0, 'crossing': 1,
+                        'noCrossRoad': 0, 'CrossRoad': 1}
+                    ).max()"""
 
                     graph = Data(
                         x=torch.tensor(x_scene).float(),
