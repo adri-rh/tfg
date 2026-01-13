@@ -42,7 +42,8 @@ GRAPH_TYPE = 0
 #1 = Conexión peatón entre frames
 #2 = Conexión completa entre nodos
 #3 = Ventanas deslizantes
-TEMPORAL_TYPE = 0
+#4 = Ventanas de ESCENAS multi-peatón
+TEMPORAL_TYPE = 4
 
 #Parámetros de las ventanas deslizantes (exclusivo de TEMPORAL_TYPE = 3)
 WINDOW_SIZE = 3
@@ -86,11 +87,11 @@ WANDB_PROJECT = "tfg"
 #Modelos e hiperparámetros
 MODEL_NAME = "GCN"   #"GCN", "GAT", "GraphConv"
 C_IN = 24
-C_HIDDEN = 256
+C_HIDDEN = 128
 C_OUT = 1
 DP_RATE_LINEAR = 0.5
-DP_RATE = 0.0
-NUM_LAYERS = 3
+DP_RATE = 0.2
+NUM_LAYERS = 2
 
 #Construcción de los grafos
 def build_spatial_edges(graph_type):
@@ -379,14 +380,113 @@ class JAAD(InMemoryDataset):
                     data_list.append(graph)
 
             return data_list
+        
+        #Función para crear grafos multipeatón temporales
+        def create_scene_temporal_graphs(csv_path, desc):
+            df = pd.read_csv(csv_path)
+            df['cross'] = df['cross'].astype(str)
+
+            scene_groups = df.groupby(["video", "frame"])
+            scenes = list(scene_groups)
+
+            data_list = []
+            n_feats = 24
+
+            for i in tqdm(range(1, len(scenes) - 1), desc=desc):
+                graphs_x = []
+                graphs_edges = []
+
+                #Inicializamos offsets
+                offset = 0
+                prev_offsets = []  #Se guarda el offset de cada escena t-1, t, t+1
+
+                # Escenas t-1, t, t+1
+                for t, (_, scene_df) in enumerate(scenes[i-1:i+2]):
+                    scene_df = scene_df.reset_index(drop=True)
+                    num_nodes = len(scene_df)
+
+                    if num_nodes < 2:
+                        break  #Descartar escenas con 1 peatón
+
+                    #Features
+                    block_list = [
+                        np.zeros((num_nodes, 1)),
+                        pd.get_dummies(scene_df.get('attention', 0)).to_numpy(float),
+                        pd.get_dummies(scene_df.get('orientation', 0)).to_numpy(float),
+                        pd.get_dummies(scene_df.get('proximity', 0)).to_numpy(float),
+                        scene_df[['distance']].to_numpy(float),
+                        pd.get_dummies(scene_df.get('action', 0)).to_numpy(float),
+                        pd.get_dummies(scene_df.get('zebra_cross', 0)).to_numpy(float),
+                    ]
+
+                    x_scene = np.hstack(block_list)
+                    x_scene = np.pad(x_scene, ((0, 0), (0, n_feats - x_scene.shape[1])))
+
+                    graphs_x.append(x_scene)
+
+                    #Mapeo de peatones a nodos locales
+                    person_to_node = {pid: idx for idx, pid in enumerate(scene_df['person'].values)}
+
+                    #Aristas espaciales
+                    spatial_edges = []
+                    for u in range(num_nodes):
+                        for v in range(num_nodes):
+                            if u != v:
+                                spatial_edges.append([offset + u, offset + v])
+                    graphs_edges.append(np.array(spatial_edges).T)
+
+                    #Aristas temporales
+                    if t > 0:
+                        prev_scene_df = scenes[i-1 + t - 1][1].reset_index(drop=True)
+                        prev_person_to_node = {pid: idx for idx, pid in enumerate(prev_scene_df['person'].values)}
+                        prev_offset = prev_offsets[t-1]
+
+                        for pid in scene_df['person'].unique():
+                            if pid in prev_person_to_node:
+                                u = prev_person_to_node[pid]
+                                v = person_to_node[pid]
+                                graphs_edges.append(
+                                    np.array([[prev_offset + u], [offset + v]])
+                                )
+
+                    prev_offsets.append(offset)
+                    offset += num_nodes
+
+                #Solo seguimos si tenemos las 3 escenas
+                if len(graphs_x) < 3:
+                    continue
+
+                #Combinamos features y edges
+                x_combined = np.vstack(graphs_x)
+                edge_index = np.hstack(graphs_edges) if len(graphs_edges) > 0 else np.zeros((2, 0), int)
+
+                #La etiqueta es la escena central
+                label_val = scenes[i][1]['cross'].map(
+                    {'not-crossing': 0, 'crossing': 1, 'noCrossRoad': 0, 'CrossRoad': 1}
+                ).mode()[0]
+
+                graph = Data(
+                    x=torch.tensor(x_combined).float(),
+                    edge_index=torch.tensor(edge_index, dtype=torch.long),
+                    y=torch.tensor([label_val], dtype=torch.long)
+                )
+
+                data_list.append(graph)
+
+            return data_list
 
         #Crear entrenamiento y test
-        train_list = create_graphs(self._csv_train, "Procesando JAAD (train)")
+        if MULTI_PEDESTRIAN and self._temporal_type == 4:
+            train_list = create_scene_temporal_graphs(self._csv_train, "Procesando JAAD temporal (train)")
+        else:
+            train_list = create_graphs(self._csv_train, "Procesando JAAD (train)")
         self.save(train_list, self.processed_paths[0])
 
-        test_list = create_graphs(self._csv_test, "Procesando JAAD (test)")
+        if MULTI_PEDESTRIAN and self._temporal_type == 4:
+            test_list = create_scene_temporal_graphs(self._csv_test, "Procesando JAAD temporal (test)")
+        else:
+            test_list = create_graphs(self._csv_test, "Procesando JAAD (test)")
         self.save(test_list, self.processed_paths[1])
-
 
 #Main principal - Ejecución normal
 if __name__ == "__main__":
