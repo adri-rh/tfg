@@ -400,7 +400,7 @@ class JAAD(InMemoryDataset):
                 offset = 0
                 prev_offsets = []  #Se guarda el offset de cada escena t-1, t, t+1
 
-                # Escenas t-1, t, t+1
+                #Escenas t-1, t, t+1
                 for t, (_, scene_df) in enumerate(scenes[i-1:i+2]):
                     scene_df = scene_df.reset_index(drop=True)
                     num_nodes = len(scene_df)
@@ -461,9 +461,17 @@ class JAAD(InMemoryDataset):
                 edge_index = np.hstack(graphs_edges) if len(graphs_edges) > 0 else np.zeros((2, 0), int)
 
                 #La etiqueta es la escena central
-                label_val = scenes[i][1]['cross'].map(
-                    {'not-crossing': 0, 'crossing': 1, 'noCrossRoad': 0, 'CrossRoad': 1}
-                ).mode()[0]
+                #Etiqueta cross por mayoría
+                """label_val = scenes[i][1]['cross'].map(
+                    {'not-crossing': 0, 'crossing': 1, 
+                    'noCrossRoad': 0, 'CrossRoad': 1}
+                ).mode()[0]"""
+
+                #Etiqueta cross positiva si al menos cruza un peatón
+                label_val = scene_df['cross'].map(
+                    {'not-crossing': 0, 'crossing': 1,
+                    'noCrossRoad': 0, 'CrossRoad': 1}
+                ).max()
 
                 graph = Data(
                     x=torch.tensor(x_combined).float(),
