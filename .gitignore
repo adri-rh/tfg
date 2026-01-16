@@ -60,6 +60,10 @@ Thumbs.db
 /tests/tfg/
 /tests/wandb/
 
+*.xml
+*.mp4
+/src/output_frames/
+
 # JAAD
 /src/checkpoints/
 /src/data/
