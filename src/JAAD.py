@@ -85,7 +85,7 @@ USE_WANDB = True
 WANDB_PROJECT = "tfg"
 
 #Modelos e hiperparámetros
-MODEL_NAME = "GCN"   #"GCN", "GAT", "GraphConv"
+MODEL_NAME = "GraphConv"   #"GCN", "GAT", "GraphConv"
 C_IN = 24
 C_HIDDEN = 128
 C_OUT = 1
@@ -285,16 +285,16 @@ class JAAD(InMemoryDataset):
                     edge_index = torch.tensor(edges, dtype=torch.long).T
 
                     #Etiqueta cross por mayoría
-                    label_val = scene_df['cross'].map(
-                        {'not-crossing': 0, 'crossing': 1,
-                        'noCrossRoad': 0, 'CrossRoad': 1}
-                    ).mode()[0]
-
-                    #Etiqueta cross positiva si al menos cruza un peatón
                     """label_val = scene_df['cross'].map(
                         {'not-crossing': 0, 'crossing': 1,
                         'noCrossRoad': 0, 'CrossRoad': 1}
-                    ).max()"""
+                    ).mode()[0]"""
+
+                    #Etiqueta cross positiva si al menos cruza un peatón
+                    label_val = scene_df['cross'].map(
+                        {'not-crossing': 0, 'crossing': 1,
+                        'noCrossRoad': 0, 'CrossRoad': 1}
+                    ).max()
 
                     graph = Data(
                         x=torch.tensor(x_scene).float(),
