@@ -1,3 +1,4 @@
+Mi markdown ahora queda así:
 # 🚗 Estimación de la intención de los usuarios de la vía mediante redes neuronales basadas en grafos
 
 **Trabajo Fin de Grado – Ingeniería de Computadores**  
@@ -110,12 +111,30 @@ Dataset clásico de clasificación de grafos utilizado para la validación preli
 
 ## ⚙️ Tecnologías utilizadas
 
-* 🐍 **Python**
-* 🔥 **PyTorch**
-* 📈 **PyTorch Geometric**
-* 📊 **Weights & Biases**
-* ⚙️ **KNIME**
-* 🐙 **GitHub**
+- 🐍 **Python** – Lenguaje principal del desarrollo.
+- 🔥 **PyTorch** – Framework de Deep Learning.  
+  https://pytorch.org/
+- 📈 **PyTorch Geometric** – Librería especializada en Graph Neural Networks.  
+  https://pytorch-geometric.readthedocs.io/
+- 📊 **Weights & Biases** – Seguimiento experimental y control de métricas.
+- ⚙️ **KNIME** – Herramienta utilizada para análisis y procesamiento complementario.  
+  https://www.knime.com/
+- 🐙 **GitHub** – Control de versiones y gestión del repositorio.
+
+---
+
+## 📚 Recursos de apoyo y referencia
+
+Durante el desarrollo del proyecto se utilizaron los siguientes recursos formativos y técnicos:
+
+- 🎥 **Antonio Longa – PyTorch Geometric Tutorial (YouTube Playlist)**  
+  https://www.youtube.com/playlist?list=PLIFCDJ0AZD7ecKcrrC1m8Jb-0Bfkn0PdK
+
+- 💻 **Repositorio oficial de tutoriales de Antonio Longa**  
+  https://github.com/AntonioLonga/PytorchGeometricTutorial
+
+- 📘 **UVA Deep Learning Course – GNN Overview Notebook**  
+  https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/tutorial7/GNN_overview.html
 
 ---
 
@@ -123,18 +142,18 @@ Dataset clásico de clasificación de grafos utilizado para la validación preli
 
 ```text
 ├── src/
-│   ├── JAAD.py
-│   ├── annotations.py
+│   ├── JAAD.py                #Script principal del pipeline
+│   ├── annotations.py         #Transformación visual de las anotaciones a los frames
 ├── tests/
-│   ├── mutagtest.py
-│   ├── test_pyg.py
-│   ├── test_pyg2.py
-│   ├── test_pyg3.py
-│   ├── test_pyg4.py
-│   ├── test_pyg5.py
-│   ├── traingat.py
-│   ├── traingcn.py
-│   └── traingraphconv.py
+│   ├── mutagtest.py           #Validación de GNN con el dataset MUTAG
+│   ├── test_pyg.py            #Creación manual de un grafo simple. Pruebas de funciones básicas de PyG
+│   ├── test_pyg2.py           #Uso del dataset TUDataset (ENZYMES) y división manual en Train/Test
+│   ├── test_pyg3.py           #Uso del dataset Planetoid (Cora) y análisis de entrenamiento/validación/test
+│   ├── test_pyg4.py           #Ejemplo de batching con DataLoader y agregación por grafo usando scatter
+│   ├── test_pyg5.py           #Implementación y entrenamiento de una GCN básica sobre el dataset Cora
+│   ├── traingat.py            #Pruebas del modelo GAT
+│   ├── traingcn.py            #Pruebas del modelo GCN
+│   └── traingraphconv.py      #Pruebas del modelo GraphConv
 ```
 
 ---
@@ -178,4 +197,4 @@ python JAAD.py
 
 ## 📜 Referencia académica
 
-Rodríguez Hurtado, A. (2026). *Estimación de la intención de los usuarios de la vía mediante redes neuronales basadas en grafos*. Trabajo de Fin de Grado, Universidad de Alcalá.
+Rodríguez Hurtado, A. (2026). *Estimación de la intención de los usuarios de la vía mediante redes neuronales basadas en grafos*. Trabajo Fin de Grado, Universidad de Alcalá.
